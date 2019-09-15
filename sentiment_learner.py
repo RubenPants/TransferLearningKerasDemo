@@ -3,6 +3,7 @@ sentiment_learner.py
 
 Model based on convolutional neural networks (CNN) that results to a binary classifier (i.e. True or False).
 """
+import collections
 import config
 import numpy as np
 
@@ -13,9 +14,13 @@ from myutils import *
 
 
 class SentimentLearner(object):
-    def __init__(self, name, data_path=None):
+    def __init__(self, name, data_path=None, mapping=None):
         """
         Initialisation of static variables.
+        
+        :param name: Name of the model
+        :param data_path: Path to (root of) the used data-folder, only used during first initialisation
+        :param mapping: Mapping function between the ground-truth labels and the target-labelling (0 or 1)
         """
         # General parameters
         self.name = name
@@ -33,18 +38,24 @@ class SentimentLearner(object):
         self.train_labels = None  # Set of training labels
         self.evaluation_labels = None  # Set of evaluation labels
         
+        # Mapping function
+        self.mapping = None  # Mapping function from data label to target (Bool)
+        
         if not self.load_model():
             if not data_path:
                 raise Exception("'data_path' must be given when a new model must be created")
             
             # Data
-            self.train_images = np.asarray([])
+            self.train_images = None
             self.evaluation_images = load_pickle(data_path + 'processed/images.pickle')
-            self.train_labels = np.asarray([])
+            self.train_labels = None
             self.evaluation_labels = load_pickle(data_path + 'processed/labels.pickle')
             
+            # Mapping function
+            self.mapping = mapping
+            
             # Create the network' self
-            self.network = self.build_network()
+            self.build_network()
             
             # Save temporal version of new model
             self.save_model()
@@ -55,7 +66,7 @@ class SentimentLearner(object):
 
         :return: String
         """
-        return 'sentiment_learner{v}_{n}'.format(v='_v{v:02d}'.format(v=config.VERSION), n=self.name.replace(' ', '_'))
+        return 'sentiment_learner_{n}{v}'.format(n=self.name.replace(' ', '_'), v='_v{v:02d}'.format(v=config.VERSION))
     
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -119,18 +130,54 @@ class SentimentLearner(object):
                     activation='sigmoid',
                     name='output')(dense)
         
-        model = Model(inputs=inp, outputs=out)
-        model.compile(loss='binary_crossentropy',
-                      optimizer='adam',
-                      metrics=['acc'])
-        model.summary()
-        return model
+        self.network = Model(inputs=inp, outputs=out)
+        self.network.compile(loss='binary_crossentropy',
+                             optimizer='adam',
+                             metrics=['acc'])
+        self.network.summary()
     
-    def train_model(self):
+    def evaluate(self):
         """
-        Train the model for config.EPOCH. Temporary models are saved every config.SAVE_INTERVAL.
+        Evaluate all the samples not used for training and plot the distribution. The index of the sample (in evaluation
+        set) closest to the model's decision threshold (defined in config) will be returned. The detailed results
+        (ground truths) will be stored in the 'evaluation' folder.
+        
+        :return: Integer: index
         """
-        raise NotImplemented
+        pred = self.network.predict(self.evaluation_images, verbose=1)
+        index = np.argmin(abs(pred - 0.5))
+        pred_round = pred.round(1)
+        
+        # Init counter
+        counter = collections.Counter()
+        for i in range(11):
+            counter[i / 10] = 0
+        
+        # Count distribution
+        for p in pred_round:
+            counter[p[0]] += 1
+        counter = dict(sorted(counter.items()))
+        
+        # Evaluate to ground truth
+        c, i = 0, 0
+        for i, l in enumerate(self.evaluation_labels):
+            p = 0 if (pred[i][0] < config.THRESHOLD) else 1
+            if self.mapping(l) == p:
+                c += 1
+        plot_bar_graph(counter, title='MNIST - Correct: {}'.format(c / (i + 1)), x_label='Even - Odd')
+        
+        return index
+    
+    def train(self):
+        """
+        Train the model and save afterwards.
+        """
+        self.network.fit(
+                x=self.train_images,
+                y=self.train_labels,
+                batch_size=config.BATCH_SIZE,
+        )
+        self.save_model()
     
     # -----------------------------------------------> HELPER METHODS <----------------------------------------------- #
     
@@ -211,3 +258,6 @@ class SentimentLearner(object):
         self.evaluation_images = new_model.evaluation_images  # Set of evaluation images
         self.train_labels = new_model.train_labels  # Set of training labels
         self.evaluation_labels = new_model.evaluation_labels  # Set of evaluation labels
+        
+        # Mapping function
+        self.mapping = new_model.mapping  # Mapping function from data label to target (Bool)

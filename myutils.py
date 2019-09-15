@@ -22,7 +22,6 @@ import pickle
 import subprocess
 import sys
 
-from matplotlib.ticker import MaxNLocator
 from timeit import default_timer as timer
 
 
@@ -218,81 +217,24 @@ def store_pickle(file, full_path):
 
 # ------------------------------------------------------> PLOT <------------------------------------------------------ #
 
-def create_bar_plot(d, prune=0.95, save_path=None, sort_keys=True, title='', x_label=None, y_label=None):
+
+def plot_bar_graph(d, title='', x_label=None):
     """
-    Create a bar-plot for the given dictionary.
+    Create a bar-plot for the dictionary (counter) d.
     
-    :param d: Dictionary that must be plotted
-    :param prune: Display only the first _ percentage of the plot
-    :param save_path: None: do not save | String: save the plot under the given path
-    :param sort_keys: Sort based on key-value
+    :param d: Dictionary
     :param title: Title of the plot
     :param x_label: Label of the x-axis
-    :param y_label: label of the y-axis
     """
-    prep("Plotting", key='creating_plot', silent=True)
-    # Abstract keys and values from dictionary
-    keys, values = extend_and_split_dictionary(d, sort_keys=sort_keys)
-    
-    # Sort on value (increasing)
-    keys, values = zip(*sorted(zip(keys, values)))
-    
-    # Maximum values on the respective axis
-    x_max = len(values) - 1  # Since key 0 was also taken in consideration
-    y_max = max(values)
-    
-    # Only visualize first <prune> percent of samples (exclude outliers)
-    if type(values[0]) == int:
-        total = sum(values)
-        keep = round(total * prune)
-        index = len([i for i in range(x_max + 1) if sum(values[:i]) <= keep])
-        if index == 1:
-            index += 1
-        values = values[:index]
-        keys = keys[:index]
-        if (x_max + 1) != len(values):
-            title += ' - first ' + str(round(prune * 100)) + '%'
-        y_label = y_label + ' - max: ' + str(y_max) if y_label else 'max: ' + str(y_max)
-    if not keys or type(keys[0]) == int:
-        x_label = x_label + ' - max: ' + str(x_max) if x_label else 'max: ' + str(x_max)
-    
-    ax = plt.figure(figsize=(8, 8)).gca()
-    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-    width = 1 if len(keys) > 50 else 0.8  # 0.8 is default
-    plt.bar(range(len(values)), list(values), width=width)
-    if keys:
-        key_length = len(keys)
-        step = key_length // 50 + 1  # Max 50 labels on x-axis
-        plt.xticks(range(0, key_length, step), list(keys[0::step]), rotation='vertical')
-    else:
-        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    plt.figure(figsize=(5, 3))
+    keys, values = zip(*sorted(d.items()))
+    plt.bar(keys, values, width=0.09)
     plt.title(title)
     plt.xlabel(x_label)
-    plt.ylabel(y_label)
+    plt.ylabel('Number of samples')
     plt.tight_layout()
-    if save_path:
-        plt.savefig(save_path)
     plt.show()
     plt.close()
-    drop(key='creating_plot', silent=True)
-
-
-def extend_and_split_dictionary(d, sort_keys=True):
-    """
-    Extend the dictionary with zeros for unused keys. Afterwards, sort the dictionary on increasing key value and split
-    the dictionary in a list for keys and a list for values.
-
-    :param d: Dictionary: keys (List), values (List of lists)
-    :param sort_keys: Sort on keys if True, otherwise sort on values
-    :return: keys (List), values (List)
-    """
-    value_list = (type(list(d.values())[0]) == list)
-    if type(list(d.keys())[0]) == int:
-        for i in range(max(list(d.keys()))):
-            if i not in d:
-                d[i] = [] if value_list else 0
-    return zip(*[(key, len(d[key])) for key in sorted(d)]) if sort_keys else \
-        zip(*[(key, d[key]) for key in sorted(d, key=d.get)])
 
 
 def plot_image(array, save_path=None, title=''):
@@ -303,12 +245,15 @@ def plot_image(array, save_path=None, title=''):
     :param save_path: None: do not save | String: save the image to given path
     :param title: Title of the figure
     """
+    prep("Plot", key='plot', silent=True)
     plt.figure(figsize=(3, 3))
     plt.imshow(array)
     plt.title(title)
     if save_path:
         plt.savefig(save_path)
     plt.show()
+    plt.close()
+    drop(key='plot', silent=True)
 
 
 # -----------------------------------------------------> SYSTEM <----------------------------------------------------- #
