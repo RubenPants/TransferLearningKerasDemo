@@ -1,4 +1,11 @@
+
+
 .idea/
-data/*/raw/.pickle
-data/*/processed/.pickle
-[*/]*test.py
+data/*/raw/*.pickle
+data/*/processed/*.pickle
+
+# Gitignore all test files
+**/test.py
+
+# Gitignore all pycache files
+**/*pycache*
