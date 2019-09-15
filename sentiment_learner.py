@@ -136,6 +136,35 @@ class SentimentLearner(object):
                              metrics=['acc'])
         self.network.summary()
     
+    def eval_and_train(self):
+        """
+        One step of the process: evaluate to get the most uncertain sample, ask the user to evaluate this model,
+        train the model, and save afterwards.
+        """
+        # Evaluate the model
+        index = self.evaluate()
+        
+        # Ask for user input
+        img, label = self.evaluation_images[index], self.evaluation_labels[index]
+        plot_image(img, title="Is this image odd?")
+        i = input("Is image '{}' odd? [Yes/No]".format(index)).lower()
+        
+        # Add to training database
+        t = 1 if (i in ['yes', 'y', 'true']) else 0 if (i in ['no', 'n', 'false']) else None
+        if t is None:
+            print("Invalid input!")
+        img_add = img.reshape((1,) + img.shape)
+        label_add = np.asarray(t).reshape((1,))
+        if self.train_images is None:
+            self.train_images = img_add
+            self.train_labels = label_add
+        else:
+            self.train_images = np.concatenate((self.train_images, img_add))
+            self.train_labels = np.concatenate((self.train_labels, label_add))
+        
+        # Train the model
+        self.train()
+    
     def evaluate(self):
         """
         Evaluate all the samples not used for training and plot the distribution. The index of the sample (in evaluation
