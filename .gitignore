@@ -1,8 +1,7 @@
-
-
 .idea/
 data/*/raw/*.pickle
 data/*/processed/*.pickle
+models/*.pickle
 
 # Gitignore all test files
 **/test.py
