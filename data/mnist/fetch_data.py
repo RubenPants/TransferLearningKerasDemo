@@ -58,12 +58,14 @@ def open_from_raw(name):
 
 
 if __name__ == '__main__':
-    prep("Fetching training data...")
+    prep("Fetching training data...", key="fetch")
     # Fetch training data
     fetch_train()
-    drop()
+    drop(key="fetch")
     
-    prep("Fetching test data...")
+    prep("Fetching test data...", key="fetch")
     # Fetch test data
     fetch_test()
-    drop()
+    drop(key="fetch")
+    
+    print_all_stats()

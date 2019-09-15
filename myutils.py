@@ -7,6 +7,7 @@ Utils overview:
  * CSV: transform_csv
  * DICT: append_dict, load_dict, store_dict
  * JSON: append_json, load_json, store_json
+ * PICKLE: store_pickle, load_pickle
  * PLOT: create_bar_plot
  * SYSTEM: create_subfolder, python2_to_3
  * TIMING: drop, prep, status_out, total_time
@@ -17,6 +18,7 @@ import glob
 import json
 import matplotlib.pyplot as plt
 import os
+import pickle
 import subprocess
 import sys
 
@@ -59,12 +61,12 @@ def append_dict(full_path, new_dict):
         for k in new_dict:
             original[k] += new_dict[k]
         
-        store_json(new_json=original,
+        store_json(file=original,
                    full_path=full_path,
                    indent=2)
     else:
         # Create new file to save json in
-        store_json(new_json=new_dict,
+        store_json(file=new_dict,
                    full_path=full_path,
                    indent=2)
 
@@ -82,7 +84,7 @@ def clip_dict(full_path, i):
         v = original[k]
         if type(v) == list:
             original[k] = v[:i]
-    store_json(new_json=original,
+    store_json(file=original,
                full_path=full_path,
                indent=2)
 
@@ -128,12 +130,12 @@ def update_dict(full_path, new_dict):
         
         original.update(new_dict)
         
-        store_json(new_json=original,
+        store_json(file=original,
                    full_path=full_path,
                    indent=2)
     else:
         # Create new file to save json in
-        store_json(new_json=new_dict,
+        store_json(file=new_dict,
                    full_path=full_path,
                    indent=2)
 
@@ -157,12 +159,12 @@ def append_json(full_path, new_json):
         
         original += new_json
         
-        store_json(new_json=original,
+        store_json(file=original,
                    full_path=full_path,
                    indent=2)
     else:
         # Create new file to save json in
-        store_json(new_json=new_json,
+        store_json(file=new_json,
                    full_path=full_path,
                    indent=2)
 
@@ -178,16 +180,40 @@ def load_json(full_path):
         return json.load(f)
 
 
-def store_json(new_json, full_path, indent=2):
+def store_json(file, full_path, indent=2):
     """
     Write a JSON file, if one already exists under the same 'full_path' then this file will be overwritten.
     
     :param full_path: Path with name of JSON file (including '.json')
-    :param new_json: The JSON file that must be stored
+    :param file: The JSON file that must be stored
     :param indent: Indentation used to pretty-print JSON
     """
     with open(full_path, 'w') as f:
-        json.dump(new_json, f, indent=indent)
+        json.dump(file, f, indent=indent)
+
+
+# -----------------------------------------------------> PICKLE <----------------------------------------------------- #
+
+def load_pickle(full_path):
+    """
+    Load the pickled file stored under 'full_path'.
+    
+    :param full_path: Path with name of pickle file (including '.pickle')
+    :return: Pickled object file or FileNotFound (Exception)
+    """
+    with open(full_path, 'rb') as f:
+        return pickle.load(f)
+
+
+def store_pickle(file, full_path):
+    """
+    Pickle and store a file, if one already exists under the same 'full_path' then this file will be overwritten.
+    
+    :param file: The (object) file that must be pickled
+    :param full_path: Path with name of pickled file (including '.pickle')
+    """
+    with open(full_path, 'wb') as f:
+        return pickle.dump(file, f)
 
 
 # ------------------------------------------------------> PLOT <------------------------------------------------------ #
@@ -267,6 +293,22 @@ def extend_and_split_dictionary(d, sort_keys=True):
                 d[i] = [] if value_list else 0
     return zip(*[(key, len(d[key])) for key in sorted(d)]) if sort_keys else \
         zip(*[(key, d[key]) for key in sorted(d, key=d.get)])
+
+
+def plot_image(array, save_path=None, title=''):
+    """
+    Plot the image represented by the array.
+
+    :param array: Three dimensional numpy array
+    :param save_path: None: do not save | String: save the image to given path
+    :param title: Title of the figure
+    """
+    plt.figure(figsize=(3, 3))
+    plt.imshow(array)
+    plt.title(title)
+    if save_path:
+        plt.savefig(save_path)
+    plt.show()
 
 
 # -----------------------------------------------------> SYSTEM <----------------------------------------------------- #
