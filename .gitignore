@@ -1,0 +1,4 @@
+.idea/
+data/*/raw/.pickle
+data/*/processed/.pickle
+[*/]*test.py
