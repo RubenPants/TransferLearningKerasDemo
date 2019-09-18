@@ -11,5 +11,6 @@ Config overview:
 # ------------------------------------------------------> MODEL <----------------------------------------------------- #
 
 BATCH_SIZE = 128  # (Integer) Training batch size
+INIT_BATCH = 32  # (Integer) Number of samples curated first before training starts
 THRESHOLD = 0.5  # (Float) Threshold (0..1) that determines the test between the two categories
 VERSION = 0  # (Integer) 0: No versioning | >0: Model version number (including tokenizer, meta-data, ...) [def=0]

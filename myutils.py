@@ -16,7 +16,6 @@ import ast
 import doctest
 import glob
 import json
-import matplotlib.pyplot as plt
 import os
 import pickle
 import subprocess
@@ -218,42 +217,34 @@ def store_pickle(file, full_path):
 # ------------------------------------------------------> PLOT <------------------------------------------------------ #
 
 
-def plot_bar_graph(d, title='', x_label=None):
+def create_bar_graph(ax, d, title='', x_label=None):
     """
     Create a bar-plot for the dictionary (counter) d.
     
+    :param ax: Axis on which the plot will be plotted
     :param d: Dictionary
     :param title: Title of the plot
     :param x_label: Label of the x-axis
     """
-    plt.figure(figsize=(5, 3))
     keys, values = zip(*sorted(d.items()))
-    plt.bar(keys, values, width=0.09)
-    plt.title(title)
-    plt.xlabel(x_label)
-    plt.ylabel('Number of samples')
-    plt.tight_layout()
-    plt.show()
-    plt.close()
+    ax.bar(keys, values, width=0.09)
+    ax.set_title(title)
+    ax.set(xlabel=x_label, ylabel='Number of samples')
+    ax.plot()
 
 
-def plot_image(array, save_path=None, title=''):
+def create_image(array, ax, title=''):
     """
     Plot the image represented by the array.
 
     :param array: Three dimensional numpy array
-    :param save_path: None: do not save | String: save the image to given path
+    :param ax: Axis on which the plot will be plotted
     :param title: Title of the figure
     """
     prep("Plot", key='plot', silent=True)
-    plt.figure(figsize=(3, 3))
-    plt.imshow(array)
-    plt.title(title)
-    if save_path:
-        plt.savefig(save_path)
-    plt.show()
-    plt.close()
-    drop(key='plot', silent=True)
+    ax.imshow(array)
+    ax.set_title(title)
+    ax.plot()
 
 
 # -----------------------------------------------------> SYSTEM <----------------------------------------------------- #

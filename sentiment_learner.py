@@ -5,8 +5,10 @@ Model based on convolutional neural networks (CNN) that results to a binary clas
 """
 import collections
 import config
+import matplotlib.pyplot as plt
 import numpy as np
 
+from IPython.display import clear_output
 from keras.layers import Conv2D, Dense, GlobalMaxPooling2D, Input, MaxPooling2D
 from keras.models import Model
 from threading import Lock
@@ -33,10 +35,12 @@ class SentimentLearner(object):
         self.lock = Lock()  # Lock to dodge concurrency problems
         
         # Data (placeholders)
-        self.train_images = None  # Set of training images
-        self.evaluation_images = None  # Set of evaluation images
-        self.train_labels = None  # Set of training labels
-        self.evaluation_labels = None  # Set of evaluation labels
+        self.trained_indexes = None  # Set of all indexes already used for training
+        self.train_images = None  # List of training images
+        self.evaluation_images = None  # List of evaluation images
+        self.train_labels = None  # List of training labels
+        self.evaluation_labels = None  # List of evaluation labels
+        self.pred = None  # List of predictions corresponding evaluation_images
         
         # Mapping function
         self.mapping = None  # Mapping function from data label to target (Bool)
@@ -46,9 +50,8 @@ class SentimentLearner(object):
                 raise Exception("'data_path' must be given when a new model must be created")
             
             # Data
-            self.train_images = None
+            self.trained_indexes = set()
             self.evaluation_images = load_pickle(data_path + 'processed/images.pickle')
-            self.train_labels = None
             self.evaluation_labels = load_pickle(data_path + 'processed/labels.pickle')
             
             # Mapping function
@@ -136,23 +139,41 @@ class SentimentLearner(object):
                              metrics=['acc'])
         self.network.summary()
     
-    def eval_and_train(self):
+    def iterate(self, train=True):
         """
         One step of the process: evaluate to get the most uncertain sample, ask the user to evaluate this model,
         train the model, and save afterwards.
+        
+        :param train: Train the network after evaluation
         """
+        # Create plot placeholder
+        # plt.figure()
+        # grid = plt.GridSpec(1, 3, wspace=0.4, hspace=0.3)
+        # ax1 = plt.subplot(grid[0, :2])
+        # ax2 = plt.subplot(grid[0, 2])
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3))
+        
         # Evaluate the model
-        index = self.evaluate()
+        index = self.evaluate(eval_new=train, ax=ax1)
         
         # Ask for user input
         img, label = self.evaluation_images[index], self.evaluation_labels[index]
-        plot_image(img, title="Is this image odd?")
-        i = input("Is image '{}' odd? [Yes/No]".format(index)).lower()
+        create_image(array=img, ax=ax2, title="Is this image odd?")
+        
+        # Plot the figure
+        clear_output()
+        plt.show()
+        
+        # Interact with the user
+        i = input("Is image '{}' odd? [Yes/No] : ".format(index)).lower()
+        
+        # Close the plot
+        plt.close()
         
         # Add to training database
         t = 1 if (i in ['yes', 'y', 'true']) else 0 if (i in ['no', 'n', 'false']) else None
         if t is None:
-            print("Invalid input!")
+            raise Exception("Invalid input!")
         img_add = img.reshape((1,) + img.shape)
         label_add = np.asarray(t).reshape((1,))
         if self.train_images is None:
@@ -162,20 +183,32 @@ class SentimentLearner(object):
             self.train_images = np.concatenate((self.train_images, img_add))
             self.train_labels = np.concatenate((self.train_labels, label_add))
         
-        # Train the model
-        self.train()
+        if train:
+            # Train the model
+            self.train()
     
-    def evaluate(self):
+    def evaluate(self, ax, eval_new):
         """
         Evaluate all the samples not used for training and plot the distribution. The index of the sample (in evaluation
         set) closest to the model's decision threshold (defined in config) will be returned. The detailed results
         (ground truths) will be stored in the 'evaluation' folder.
         
+        :param ax: Axis on which the figure will be plotted
+        :param eval_new: Evaluate all the samples in evaluation_images again
         :return: Integer: index
         """
-        pred = self.network.predict(self.evaluation_images, verbose=1)
-        index = np.argmin(abs(pred - 0.5))
-        pred_round = pred.round(1)
+        if eval_new or self.pred is None:
+            self.pred = self.network.predict(self.evaluation_images, verbose=1)
+        pred_index = []  # List containing tuples of (index, value)
+        for i, p in enumerate(self.pred):
+            pred_index.append((i, abs(p - config.THRESHOLD)))
+        pred_index = sorted(pred_index, key=lambda pi: pi[1])
+        x = 0
+        while pred_index[x][0] in self.trained_indexes:
+            x += 1
+        self.trained_indexes.add(pred_index[x][0])
+        index = pred_index[x][0]
+        pred_round = self.pred.round(1)
         
         # Init counter
         counter = collections.Counter()
@@ -190,10 +223,13 @@ class SentimentLearner(object):
         # Evaluate to ground truth
         c, i = 0, 0
         for i, l in enumerate(self.evaluation_labels):
-            p = 0 if (pred[i][0] < config.THRESHOLD) else 1
+            p = 0 if (self.pred[i][0] < config.THRESHOLD) else 1
             if self.mapping(l) == p:
                 c += 1
-        plot_bar_graph(counter, title='MNIST - Correct: {}'.format(c / (i + 1)), x_label='Even - Odd')
+        create_bar_graph(d=counter,
+                         ax=ax,
+                         title='MNIST - Correct: {}'.format(round(c / (i + 1)), 3),
+                         x_label='Even - Odd')
         
         return index
     
@@ -283,10 +319,12 @@ class SentimentLearner(object):
         self.current_epoch = new_model.current_epoch  # Amount of epoch the model already trained on
         
         # Data (placeholders)
-        self.train_images = new_model.train_images  # Set of training images
-        self.evaluation_images = new_model.evaluation_images  # Set of evaluation images
-        self.train_labels = new_model.train_labels  # Set of training labels
-        self.evaluation_labels = new_model.evaluation_labels  # Set of evaluation labels
+        self.trained_indexes = new_model.trained_indexes  # Set of indexes already used for training
+        self.train_images = new_model.train_images  # List of training images
+        self.evaluation_images = new_model.evaluation_images  # List of evaluation images
+        self.train_labels = new_model.train_labels  # List of training labels
+        self.evaluation_labels = new_model.evaluation_labels  # List of evaluation labels
+        self.pred = new_model.pred  # List of predictions corresponding evaluation_images
         
         # Mapping function
         self.mapping = new_model.mapping  # Mapping function from data label to target (Bool)

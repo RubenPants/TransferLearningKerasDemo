@@ -26,4 +26,4 @@ if __name__ == '__main__':
     
     # Plot the file
     save_path = folder + 'images/image{}'.format(args.index) if args.save else None
-    plot_image(img, save_path=save_path, title='Image {i} - Truth: {t}'.format(i=args.index, t=label))
+    create_image(img, save_path=save_path, title='Image {i} - Truth: {t}'.format(i=args.index, t=label))
