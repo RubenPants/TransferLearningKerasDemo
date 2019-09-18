@@ -1,4 +1,5 @@
 .idea/
+data/*/images/*.png
 data/*/raw/*.pickle
 data/*/processed/*.pickle
 models/*.pickle
