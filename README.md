@@ -121,16 +121,10 @@ self.network.compile(loss='sparse_categorical_crossentropy',
                      metrics=['acc'])
 ```
 
-Next, for our **second problem**, the shared network gets frozen:
+Next, for our **second problem**, the shared network gets frozen. This can simply be done by toggling the 'trainable'
+parameter of the shared network as follows:
 ```python
-conv11.trainable = False
-conv12.trainable = False
-conv13.trainable = False
-maxpool.trainable = False
-conv21.trainable = False
-conv22.trainable = False
-conv23.trainable = False
-global_maxpool.trainable = False
+shared.trainable = False
 ```
 
 And our binary classification model will be given a last layer. This last layer has a sigmoid as its activation

@@ -32,8 +32,11 @@ class TransferLearner(object):
         self.name = name
         
         # Model (placeholders)
-        self.network = None  # Container for the model network 'self
+        self.shared = None  # Container for the shared part of the model's network
+        self.network_1 = None  # Container for the network (shared + bottom) on the first problem
+        self.network_2 = None  # Container for the network (shared + bottom) on the second problem
         self.current_epoch = 0  # Amount of epoch the model already trained on
+        self.is_frozen = False  # Boolean indicating that the shared network's layers are frozen
         
         # System
         self.lock = Lock()  # Lock to dodge concurrency problems
@@ -44,7 +47,8 @@ class TransferLearner(object):
         self.evaluation_images = None  # List of evaluation images
         self.train_labels = None  # List of training labels
         self.evaluation_labels = None  # List of evaluation labels
-        self.pred = None  # List of predictions corresponding evaluation_images
+        self.pred_1 = None  # List of predictions corresponding evaluation_images for the first network
+        self.pred_2 = None  # List of predictions corresponding evaluation_images for the second network
         
         # Mapping function
         self.mapping = None  # Mapping function from data label to target (Bool)
@@ -62,7 +66,8 @@ class TransferLearner(object):
             self.mapping = mapping
             
             # Create the network' self
-            self.build_network()
+            self.create_shared_network()
+            self.create_model_one()
             
             # Save temporal version of new model
             self.save_model()
@@ -86,9 +91,50 @@ class TransferLearner(object):
     
     # ------------------------------------------------> MAIN METHODS <------------------------------------------------ #
     
-    def build_network(self):
+    def create_model_one(self):
         """
-        Create and compile the model, it is recommended to print out the summary as well.
+        Add the bottom layer for the first problem statement (classification task), as described in the README.
+        
+        :return: Model
+        """
+        out = Dense(10,
+                    activation='softmax',
+                    name='output')(self.shared.output)
+        
+        self.network_1 = Model(inputs=self.shared.input, outputs=out)
+        self.network_1.compile(loss='sparse_categorical_crossentropy',
+                               optimizer='adam',
+                               metrics=['acc'])
+        self.network_1.summary()
+    
+    def create_model_two(self):
+        """
+        Add the bottom layer for the second problem statement (binary classification), as described in the README. The
+        shared model's weights will get frozen as well, note that it will not be possible to train the network on the
+        first problem anymore after freezing the shared model's layers.
+        
+        :return: Model
+        """
+        # Freeze the shared model
+        self.is_frozen = True
+        self.shared.trainable = False
+        
+        # Additional layer for the second problem
+        out = Dense(1,
+                    activation='sigmoid',
+                    name='output')(self.shared.output)
+        
+        self.network_2 = Model(inputs=self.shared.input, outputs=out)
+        self.network_2.compile(loss='binary_crossentropy',
+                               optimizer='adam',
+                               metrics=['acc'])
+        self.network_2.summary()
+    
+    def create_shared_network(self):
+        """
+        Create the shared part of the model as described in the README.
+        
+        :return: Model
         """
         # RGB input of non-defined size
         inp = Input(shape=(None, None, 3),  # Excluding batch-size
@@ -133,15 +179,8 @@ class TransferLearner(object):
                       activation='tanh',
                       name='dense')(global_maxpool)
         
-        out = Dense(1,
-                    activation='sigmoid',
-                    name='output')(dense)
-        
-        self.network = Model(inputs=inp, outputs=out)
-        self.network.compile(loss='binary_crossentropy',
-                             optimizer='adam',
-                             metrics=['acc'])
-        self.network.summary()
+        # Assign the newly created model to the 'shared' parameter
+        self.shared = Model(inputs=inp, outputs=dense)
     
     def iterate(self, train=True):
         """
@@ -158,7 +197,7 @@ class TransferLearner(object):
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3))
         
         # Evaluate the model
-        index = self.evaluate(eval_new=train, ax=ax1)
+        index = self.evaluate_2(eval_new=train, ax=ax1)
         
         # Ask for user input
         img, label = self.evaluation_images[index], self.evaluation_labels[index]
@@ -191,7 +230,22 @@ class TransferLearner(object):
             # Train the model
             self.train()
     
-    def evaluate(self, ax, eval_new):
+    def evaluate_1(self):
+        """
+        Evaluate the network corresponding the first problem.
+        """
+        self.pred_1 = self.network_2.predict(self.evaluation_images, verbose=1)
+        results = []
+        for p in self.pred_1:
+            results.append(np.argmax(p))
+        c, i = 0, 0
+        for r, l in zip(results, self.evaluation_labels):
+            if r == l:
+                c += 1
+        
+        print("Accuracy network 1: ", round(c / (i + 1), 3))
+    
+    def evaluate_2(self, ax, eval_new):
         """
         Evaluate all the samples not used for training and plot the distribution. The index of the sample (in evaluation
         set) closest to the model's decision threshold (defined in config) will be returned. The detailed results
@@ -201,10 +255,10 @@ class TransferLearner(object):
         :param eval_new: Evaluate all the samples in evaluation_images again
         :return: Integer: index
         """
-        if eval_new or self.pred is None:
-            self.pred = self.network.predict(self.evaluation_images, verbose=1)
+        if eval_new or self.pred_2 is None:
+            self.pred_2 = self.network_2.predict(self.evaluation_images, verbose=1)
         pred_index = []  # List containing tuples of (index, value)
-        for i, p in enumerate(self.pred):
+        for i, p in enumerate(self.pred_2):
             pred_index.append((i, abs(p - config.THRESHOLD)))
         pred_index = sorted(pred_index, key=lambda pi: pi[1])
         x = 0
@@ -212,7 +266,7 @@ class TransferLearner(object):
             x += 1
         self.trained_indexes.add(pred_index[x][0])
         index = pred_index[x][0]
-        pred_round = self.pred.round(1)
+        pred_round = self.pred_2.round(1)
         
         # Init counter
         counter = collections.Counter()
@@ -227,7 +281,7 @@ class TransferLearner(object):
         # Evaluate to ground truth
         c, i = 0, 0
         for i, l in enumerate(self.evaluation_labels):
-            p = 0 if (self.pred[i][0] < config.THRESHOLD) else 1
+            p = 0 if (self.pred_2[i][0] < config.THRESHOLD) else 1
             if self.mapping(l) == p:
                 c += 1
         create_bar_graph(d=counter,
@@ -240,12 +294,26 @@ class TransferLearner(object):
     def train(self):
         """
         Train the model and save afterwards.
+        
+        If the shared model is not yet frozen, the network corresponding the first problem statement will be trained.
+        Note that it is trained on all data, which isn't how it should be! When done properly, one should ALWAYS
+        separate the full dataset in a training and it is a test set. It is also highly encouraged to incorporate a
+        validation set as well. But again, to simplify the model in its whole, we will ignore this best practice.
+        
+        If the shared model is indeed frozen, only manually curated samples will be used to train the model on.
         """
-        self.network.fit(
-                x=self.train_images,
-                y=self.train_labels,
-                batch_size=config.BATCH_SIZE,
-        )
+        if self.is_frozen:
+            self.network_2.fit(
+                    x=self.train_images,
+                    y=self.train_labels,
+                    batch_size=config.BATCH_SIZE,
+            )
+        else:
+            self.network_1.fit(
+                    x=self.evaluation_images,
+                    y=self.evaluation_labels,
+                    batch_size=config.BATCH_SIZE,
+            )
         self.save_model()
     
     # -----------------------------------------------> HELPER METHODS <----------------------------------------------- #
@@ -280,7 +348,12 @@ class TransferLearner(object):
             print("Model '{m}' loaded successfully! Current epoch: {e:d}".format(m=str(self), e=self.current_epoch))
             
             # Show summary of the model
-            self.network.summary()
+            if self.is_frozen:
+                print("Current model: Model for problem 2")
+                self.network_2.summary()
+            else:
+                print("Current model: Model for problem 1")
+                self.network_1.summary()
             
             # Flag that loading was successful
             return True
@@ -295,6 +368,16 @@ class TransferLearner(object):
         finally:
             drop(key='mdl_load_save')
             self.lock.release()
+    
+    def print_stats(self):
+        """
+        Print out the most important parameters of the network.
+        """
+        items = {
+            'frozen': self.is_frozen,
+            # TODO: Enlarge
+        }
+        print(get_fancy_string_dict(items, '{} - Parameters'.format(str(self))))
     
     def save_model(self, full_path=None):
         """
@@ -319,8 +402,11 @@ class TransferLearner(object):
         :param new_model: TransferLearner object
         """
         # Model
-        self.network = new_model.network  # Container for the model network 'self
+        self.shared = new_model.shared  # Container for the shared part of the model's network
+        self.network_1 = new_model.network_1  # Container for the network (shared + bottom) on the first problem
+        self.network_2 = new_model.network_2  # Container for the network (shared + bottom) on the second problem
         self.current_epoch = new_model.current_epoch  # Amount of epoch the model already trained on
+        self.is_frozen = new_model.is_frozen  # Boolean indicating that the shared network's layers are frozen
         
         # Data (placeholders)
         self.trained_indexes = new_model.trained_indexes  # Set of indexes already used for training
@@ -328,7 +414,6 @@ class TransferLearner(object):
         self.evaluation_images = new_model.evaluation_images  # List of evaluation images
         self.train_labels = new_model.train_labels  # List of training labels
         self.evaluation_labels = new_model.evaluation_labels  # List of evaluation labels
-        self.pred = new_model.pred  # List of predictions corresponding evaluation_images
         
         # Mapping function
         self.mapping = new_model.mapping  # Mapping function from data label to target (Bool)
