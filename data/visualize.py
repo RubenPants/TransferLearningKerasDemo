@@ -4,6 +4,7 @@ visualize.py
 Visualize processed images.
 """
 import argparse
+
 import matplotlib.pyplot as plt
 
 from myutils import *

@@ -4,7 +4,6 @@ fetch_data.py
 Fetch the MNIST dataset in its raw format.
 """
 import mnist
-import pickle
 
 from myutils import *
 

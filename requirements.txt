@@ -1,3 +1,4 @@
+IPython
 keras
 Pillow
 seaborn

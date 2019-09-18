@@ -1,25 +1,25 @@
 """
-sentiment_learner.py
+transfer_learner.py
 
 Model based on convolutional neural networks (CNN) that results to a binary classifier (i.e. True or False).
 
 TODO: Transfer learn the model first
-TODO: Create general sentiment learner perhaps?
-TODO: Init phase (INIT_BATCH) on random samples instead of must unsure?
+TODO: Init phase (INIT_BATCH) on random samples instead of most unsure?
 """
 import collections
-import config
+from threading import Lock
+
 import matplotlib.pyplot as plt
 import numpy as np
-
 from IPython.display import clear_output
 from keras.layers import Conv2D, Dense, GlobalMaxPooling2D, Input, MaxPooling2D
 from keras.models import Model
-from threading import Lock
+
+import config
 from myutils import *
 
 
-class SentimentLearner(object):
+class TransferLearner(object):
     def __init__(self, name, data_path=None, mapping=None):
         """
         Initialisation of static variables.
@@ -73,7 +73,7 @@ class SentimentLearner(object):
 
         :return: String
         """
-        return 'sentiment_learner_{n}{v}'.format(n=self.name.replace(' ', '_'), v='_v{v:02d}'.format(v=config.VERSION))
+        return 'transfer_learner_{n}{v}'.format(n=self.name.replace(' ', '_'), v='_v{v:02d}'.format(v=config.VERSION))
     
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -316,7 +316,7 @@ class SentimentLearner(object):
         """
         Update the current model's parameters with the new model's parameters.
         
-        :param new_model: SentimentLearner object
+        :param new_model: TransferLearner object
         """
         # Model
         self.network = new_model.network  # Container for the model network 'self

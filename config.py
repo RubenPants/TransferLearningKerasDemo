@@ -5,7 +5,7 @@ configurations used throughout the project. Manipulating these parameters can ha
 the models.
 
 Config overview:
- * MODEL - Model (Sentiment-Learner) specific parameters
+ * MODEL - Model (TransferLearner) specific parameters
 """
 
 # ------------------------------------------------------> MODEL <----------------------------------------------------- #

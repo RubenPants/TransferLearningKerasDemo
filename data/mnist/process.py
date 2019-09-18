@@ -10,8 +10,8 @@ evaluation set.
 """
 import numpy as np
 
-from myutils import *
 from data.mnist.fetch_data import open_from_raw
+from myutils import *
 
 
 # ---------------------------------------------------> MAIN FILES <--------------------------------------------------- #
