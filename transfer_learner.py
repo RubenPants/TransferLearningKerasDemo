@@ -14,19 +14,19 @@ import numpy as np
 from IPython.display import clear_output
 from keras.layers import Conv2D, Dense, GlobalMaxPooling2D, Input, MaxPooling2D
 from keras.models import Model
+from keras_tqdm import TQDMNotebookCallback
 
 import config
 from myutils import *
 
 
 class TransferLearner(object):
-    def __init__(self, name, data_path=None, mapping=None):
+    def __init__(self, name, data_path=None):
         """
         Initialisation of static variables.
         
         :param name: Name of the model
         :param data_path: Path to (root of) the used data-folder, only used during first initialisation
-        :param mapping: Mapping function between the ground-truth labels and the target-labelling (0 or 1)
         """
         # General parameters
         self.name = name
@@ -50,9 +50,6 @@ class TransferLearner(object):
         self.pred_1 = None  # List of predictions corresponding evaluation_images for the first network
         self.pred_2 = None  # List of predictions corresponding evaluation_images for the second network
         
-        # Mapping function
-        self.mapping = None  # Mapping function from data label to target (Bool)
-        
         if not self.load_model():
             if not data_path:
                 raise Exception("'data_path' must be given when a new model must be created")
@@ -61,9 +58,6 @@ class TransferLearner(object):
             self.trained_indexes = set()
             self.evaluation_images = load_pickle(data_path + 'processed/images.pickle')
             self.evaluation_labels = load_pickle(data_path + 'processed/labels.pickle')
-            
-            # Mapping function
-            self.mapping = mapping
             
             # Create the network' self
             self.create_shared_network()
@@ -118,6 +112,8 @@ class TransferLearner(object):
         # Freeze the shared model
         self.is_frozen = True
         self.shared.trainable = False
+        for layer in self.shared.layers:
+            layer.trainable = False
         
         # Additional layer for the second problem
         out = Dense(1,
@@ -175,18 +171,19 @@ class TransferLearner(object):
         global_maxpool = GlobalMaxPooling2D(name='global_max_pool')(conv23)
         
         # Fully connected layers
-        dense = Dense(128,
+        dense = Dense(32,
                       activation='tanh',
                       name='dense')(global_maxpool)
         
         # Assign the newly created model to the 'shared' parameter
         self.shared = Model(inputs=inp, outputs=dense)
     
-    def iterate(self, train=True):
+    def iterate(self, mapping, train=True):
         """
         One step of the process: evaluate to get the most uncertain sample, ask the user to evaluate this model,
         train the model, and save afterwards.
         
+        :param mapping: Mapping function between the ground-truth labels and the target-labelling (0 or 1)
         :param train: Train the network after evaluation
         """
         # Create plot placeholder
@@ -197,7 +194,7 @@ class TransferLearner(object):
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3))
         
         # Evaluate the model
-        index = self.evaluate_2(eval_new=train, ax=ax1)
+        index = self.evaluate_2(eval_new=train, ax=ax1, mapping=mapping)
         
         # Ask for user input
         img, label = self.evaluation_images[index], self.evaluation_labels[index]
@@ -234,18 +231,23 @@ class TransferLearner(object):
         """
         Evaluate the network corresponding the first problem.
         """
-        self.pred_1 = self.network_2.predict(self.evaluation_images, verbose=1)
+        prep('Predicting...', key='evaluation')
+        # Get predictions
+        self.pred_1 = self.network_1.predict(self.evaluation_images, verbose=0)
         results = []
         for p in self.pred_1:
             results.append(np.argmax(p))
+        
+        # Evaluate
         c, i = 0, 0
         for r, l in zip(results, self.evaluation_labels):
             if r == l:
                 c += 1
         
-        print("Accuracy network 1: ", round(c / (i + 1), 3))
+        drop(key='evaluation')
+        print("Accuracy network 1: ", round(c / (len(results) + 1), 3))
     
-    def evaluate_2(self, ax, eval_new):
+    def evaluate_2(self, ax, eval_new, mapping):
         """
         Evaluate all the samples not used for training and plot the distribution. The index of the sample (in evaluation
         set) closest to the model's decision threshold (defined in config) will be returned. The detailed results
@@ -253,10 +255,11 @@ class TransferLearner(object):
         
         :param ax: Axis on which the figure will be plotted
         :param eval_new: Evaluate all the samples in evaluation_images again
+        :param mapping: Mapping function between the ground-truth labels and the target-labelling (0 or 1)
         :return: Integer: index
         """
         if eval_new or self.pred_2 is None:
-            self.pred_2 = self.network_2.predict(self.evaluation_images, verbose=1)
+            self.pred_2 = self.network_2.predict(self.evaluation_images, verbose=0)
         pred_index = []  # List containing tuples of (index, value)
         for i, p in enumerate(self.pred_2):
             pred_index.append((i, abs(p - config.THRESHOLD)))
@@ -282,7 +285,7 @@ class TransferLearner(object):
         c, i = 0, 0
         for i, l in enumerate(self.evaluation_labels):
             p = 0 if (self.pred_2[i][0] < config.THRESHOLD) else 1
-            if self.mapping(l) == p:
+            if mapping(l) == p:
                 c += 1
         create_bar_graph(d=counter,
                          ax=ax,
@@ -291,7 +294,7 @@ class TransferLearner(object):
         
         return index
     
-    def train(self):
+    def train(self, epochs=1):
         """
         Train the model and save afterwards.
         
@@ -301,19 +304,30 @@ class TransferLearner(object):
         validation set as well. But again, to simplify the model in its whole, we will ignore this best practice.
         
         If the shared model is indeed frozen, only manually curated samples will be used to train the model on.
+        
+        :param epochs: Number of epochs trained
         """
+        prep('Predicting...', key='training', silent=True)
         if self.is_frozen:
             self.network_2.fit(
                     x=self.train_images,
                     y=self.train_labels,
                     batch_size=config.BATCH_SIZE,
+                    epochs=epochs,
+                    verbose=0,
+                    callbacks=[TQDMNotebookCallback()],
             )
         else:
             self.network_1.fit(
                     x=self.evaluation_images,
                     y=self.evaluation_labels,
                     batch_size=config.BATCH_SIZE,
+                    epochs=epochs,
+                    verbose=0,
+                    callbacks=[TQDMNotebookCallback()],
             )
+        self.current_epoch += epochs
+        drop(key='training', silent=True)
         self.save_model()
     
     # -----------------------------------------------> HELPER METHODS <----------------------------------------------- #
@@ -374,8 +388,11 @@ class TransferLearner(object):
         Print out the most important parameters of the network.
         """
         items = {
-            'frozen': self.is_frozen,
-            # TODO: Enlarge
+            'current_epoch': self.current_epoch,
+            'is_frozen':     self.is_frozen,
+            'network_1':     self.network_1,
+            'network_2':     self.network_2,
+            'shared':        self.shared,
         }
         print(get_fancy_string_dict(items, '{} - Parameters'.format(str(self))))
     
@@ -414,6 +431,3 @@ class TransferLearner(object):
         self.evaluation_images = new_model.evaluation_images  # List of evaluation images
         self.train_labels = new_model.train_labels  # List of training labels
         self.evaluation_labels = new_model.evaluation_labels  # List of evaluation labels
-        
-        # Mapping function
-        self.mapping = new_model.mapping  # Mapping function from data label to target (Bool)

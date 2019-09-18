@@ -144,7 +144,7 @@ self.network.compile(loss='binary_crossentropy',
 
 ## Alternatives
 
-### Fix the whole first network
+### Freeze the whole first network
 Another, and possibly a better, alternative of the model would be to simply add the last layer on top of the 
 'categorical layer' of the first problem. By doing so, the model only needs to know that one category always ends up to
 one given Boolean value (odd or not). In theory, only 10 samples (one for every possible digit) would be needed to train
