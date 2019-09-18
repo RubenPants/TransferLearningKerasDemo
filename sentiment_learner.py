@@ -2,6 +2,10 @@
 sentiment_learner.py
 
 Model based on convolutional neural networks (CNN) that results to a binary classifier (i.e. True or False).
+
+TODO: Transfer learn the model first
+TODO: Create general sentiment learner perhaps?
+TODO: Init phase (INIT_BATCH) on random samples instead of must unsure?
 """
 import collections
 import config
