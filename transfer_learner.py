@@ -95,41 +95,41 @@ class TransferLearner(object):
                     name='input')
         
         # Three convolutional layers
-        conv = Conv2D(filters=32,
-                      kernel_size=(3, 3),
-                      activation='relu',
-                      name='conv1_layer1')(inp)
-        conv = Conv2D(filters=32,
-                      kernel_size=(3, 3),
-                      activation='relu',
-                      name='conv2_layer1')(conv)
-        conv = Conv2D(filters=32,
-                      kernel_size=(3, 3),
-                      activation='relu',
-                      name='conv3_layer1')(conv)
+        conv11 = Conv2D(filters=16,
+                        kernel_size=(3, 3),
+                        activation='relu',
+                        name='conv1_layer1')(inp)
+        conv12 = Conv2D(filters=16,
+                        kernel_size=(3, 3),
+                        activation='relu',
+                        name='conv2_layer1')(conv11)
+        conv13 = Conv2D(filters=16,
+                        kernel_size=(3, 3),
+                        activation='relu',
+                        name='conv3_layer1')(conv12)
         
         # MaxPool
-        maxpool = MaxPooling2D(name='max_pool')(conv)
+        maxpool = MaxPooling2D(name='max_pool')(conv13)
         
         # Three convolutional layers
-        conv = Conv2D(filters=64,
-                      kernel_size=(3, 3),
-                      activation='relu',
-                      name='conv1_layer2')(maxpool)
-        conv = Conv2D(filters=64,
-                      kernel_size=(3, 3),
-                      activation='relu',
-                      name='conv2_layer2')(conv)
-        conv = Conv2D(filters=64,
-                      kernel_size=(3, 3),
-                      activation='relu',
-                      name='conv3_layer2')(conv)
+        conv21 = Conv2D(filters=32,
+                        kernel_size=(3, 3),
+                        activation='relu',
+                        name='conv1_layer2')(maxpool)
+        conv22 = Conv2D(filters=32,
+                        kernel_size=(3, 3),
+                        activation='relu',
+                        name='conv2_layer2')(conv21)
+        conv23 = Conv2D(filters=32,
+                        kernel_size=(3, 3),
+                        activation='relu',
+                        name='conv3_layer2')(conv22)
         
         # Global MaxPool
-        global_maxpool = GlobalMaxPooling2D(name='global_max_pool')(conv)
+        global_maxpool = GlobalMaxPooling2D(name='global_max_pool')(conv23)
         
         # Fully connected layers
-        dense = Dense(256,
+        dense = Dense(128,
                       activation='tanh',
                       name='dense')(global_maxpool)
         
