@@ -228,7 +228,7 @@ class SentimentLearner(object):
                 c += 1
         create_bar_graph(d=counter,
                          ax=ax,
-                         title='MNIST - Correct: {}'.format(round(c / (i + 1)), 3),
+                         title='MNIST - Correct: {}'.format(round(c / (i + 1), 3)),
                          x_label='Even - Odd')
         
         return index
