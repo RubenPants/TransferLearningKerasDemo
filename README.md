@@ -6,7 +6,7 @@
 2. **Project Overview** - For the real hackers who want to dive straight into the code
 3. **Full walk-through** - For those who want to learn a bit and have 15 minutes of spare time
 
-![final_fig.gif](https://github.com/RubenPants/TransferLearningKerasDemo/blob/master/images/final_fig.gif)
+<div style="text-align:center"><img src="https://github.com/RubenPants/TransferLearningKerasDemo/blob/master/images/final_fig.gif"/></div>
 
 
 
@@ -27,13 +27,9 @@ with `N` the number of layers that remain unfrozen from the initial model.
 
 ## 2. Project Overview
 
-* **Configuration** file of the project is `config.py`, this gives an overview of the most prominent parameters of the
-project
-* **Jupyter Notebook** which gives a detailed and complete walk-through of the full process can be found in the 
-'notebooks/' subfolder, a HTML-compiled version of the final notebook can be in here as well (since this is visually a
-bit more appealing, and one does not need to install all the dependencies before opening this)
-* **MNIST Dataset** can be found in the 'data/mnist/' folder, both the script for fetching the raw images as the 
-preprocess of the samples can be found in here
+* **Configuration** file of the project is `config.py`, this gives an overview of the most prominent parameters of the project
+* **Jupyter Notebook** which gives a detailed and complete walk-through of the full process can be found in the 'notebooks/' subfolder, a HTML-compiled version of the final notebook can be in here as well (since this is visually a bit more appealing, and one does not need to install all the dependencies before opening this)
+* **MNIST Dataset** can be found in the 'data/mnist/' folder, both the script for fetching the raw images as the preprocess of the samples can be found in here
 * **Transfer Learner** itself can be found in the `transfer_learner.py` file under root
 
 
