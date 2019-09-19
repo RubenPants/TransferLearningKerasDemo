@@ -135,3 +135,43 @@ In this last section, I will go briefly over the models performance. Let's consi
 <p align="center">
   <img src="https://github.com/RubenPants/TransferLearningKerasDemo/blob/master/images/gif_00.png"/>
 </p>
+
+When analyzing the weights between CL and BL, we see that some are better than others. The target-weights we want are high weights ('bright') for the odd numbers, and low ('dark') for the even numbers. Put otherwise, the model has some training to do before it realizes that (e.g.) 9 should get a high weight instead of a low one.
+
+The first 20 manually curated samples, the model asked a lot about the numbers {2, 3, 6}, making that these numbers occurred relatively often in the training set (manually curated samples). This with result that after only five iterations, the model knew very well that {3} is an odd number ('bright' square), and {2, 6} are even numbers ('dark' squares). Note that it mistakenly darkens the square of 1 a little, but this will be fixed afterwards (1 didn't occur in the manually curated set thus far).
+
+<p align="center">
+  <img src="https://github.com/RubenPants/TransferLearningKerasDemo/blob/master/images/gif_05.png"/>
+</p> 
+
+For the next iterations, the model has a good focus on the numbers {0, 5, 7}. It also improves a little for the numbers {4, 8}.
+
+<p align="center">
+  <img src="https://github.com/RubenPants/TransferLearningKerasDemo/blob/master/images/gif_13.png"/>
+</p>
+
+The next iterations, the model almost solely asks to curate the number 9, which has a great influence on the weights corresponding this number:
+
+<p align="center">
+  <img src="https://github.com/RubenPants/TransferLearningKerasDemo/blob/master/images/gif_20.png"/>
+</p>
+
+The only non-optimized number left is number 1, this is because up till now, this number wasn't asked to label by the model, meaning that it wasn't possible for the model to train on this number. Since the model predicts that '1' is an even number with quite some confidence, it takes some time until this group of images representing ones will shift towards the 'odd'-side. Eventually, after only 30 iterations (i.e. 120 manually curated samples), we get the following distribution and CL-BL weights:
+
+<p align="center">
+  <img src="https://github.com/RubenPants/TransferLearningKerasDemo/blob/master/images/gif_30.png"/>
+</p>
+
+Note that for the last problem where the model needed quite some time to train on number 1, less manually curated 1-samples would result in a comparable result as we obtained here. Once the model has the right curated samples and is trained enough, the weights will eventually update to the right values.
+
+### Conclusion
+
+In another experiment I did, each number had one 'representative' that was manually curated. After only 8 epochs of training, the model already obtained better results that we got above (with only 10 manually curated samples!). This to show that the choice of (high quality) samples is very important when performing transfer learning. Since the model already has a general understanding of the problem, due to the training on `network_1`, it is better to have less but more qualitative samples, than to have more noisy samples in your dataset.
+
+I hope this tutorial is clear for you, if you find any bugs or incorrect information then please open an issue on the GitHub page and I'll try to look into it as fast as possible!
+
+
+
+Have a nice strumming
+
+Ruben
