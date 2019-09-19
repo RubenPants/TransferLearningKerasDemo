@@ -1,3 +1,4 @@
+tqdm
 IPython
 keras
 Pillow

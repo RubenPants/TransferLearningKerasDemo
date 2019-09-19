@@ -13,7 +13,9 @@ import numpy as np
 from IPython.display import clear_output
 from keras.layers import Conv2D, Dense, GlobalMaxPooling2D, Input, MaxPooling2D
 from keras.models import Model
+from keras.optimizers import Adam
 from keras_tqdm import TQDMNotebookCallback
+from tqdm import tqdm
 
 import config
 from myutils import *
@@ -114,8 +116,9 @@ class TransferLearner(object):
                     name='output')(self.shared.output)
         
         self.network_2 = Model(inputs=self.shared.input, outputs=out)
+        adam = Adam(lr=0.2)  # Drastic increase the learning rate since optima are situated at the edges
         self.network_2.compile(loss='binary_crossentropy',
-                               optimizer='adam',
+                               optimizer=adam,
                                metrics=['acc'])
         self.network_2.summary()
     
@@ -198,7 +201,7 @@ class TransferLearner(object):
                     batch_size=config.BATCH_SIZE,
                     epochs=epochs,
                     verbose=0,
-                    callbacks=[TQDMNotebookCallback()],
+                    callbacks=[TQDMNotebookCallback(leave_inner=True)],
             )
         else:
             self.network_1.fit(
@@ -207,7 +210,7 @@ class TransferLearner(object):
                     batch_size=config.BATCH_SIZE,
                     epochs=epochs,
                     verbose=0,
-                    callbacks=[TQDMNotebookCallback()],
+                    callbacks=[TQDMNotebookCallback(leave_inner=True)],
             )
         self.current_epoch += epochs
         drop(key='training', silent=True)
@@ -318,7 +321,7 @@ class TransferLearner(object):
         curate_set = sample(unsure, min(batch, len(unsure)))
         
         # Curate the random samples and add to 'trained_indexes'
-        for c in curate_set:
+        for c in tqdm(curate_set):
             img, label = self.evaluation_images[c], self.evaluation_labels[c]
             fig, ax = plt.subplots(1, 1, figsize=(3, 3))
             create_image(array=img, ax=ax, title="Is this image odd? P(odd)={p:.2f}".format(p=round(preds[c][0], 2)))
