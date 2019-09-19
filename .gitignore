@@ -9,3 +9,9 @@ models/*.pickle
 
 # Gitignore all pycache files
 **/*pycache*
+
+# Gitignore all images in the images/ subfolder
+images/*.png
+
+# Gitignore all backed-up files
+backup/

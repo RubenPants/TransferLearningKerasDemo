@@ -116,7 +116,7 @@ class TransferLearner(object):
                     name='output')(self.shared.output)
         
         self.network_2 = Model(inputs=self.shared.input, outputs=out)
-        adam = Adam(lr=0.2)  # Drastic increase the learning rate since optima are situated at the edges
+        adam = Adam(lr=config.ADAM_LR)
         self.network_2.compile(loss='binary_crossentropy',
                                optimizer=adam,
                                metrics=['acc'])
@@ -203,6 +203,7 @@ class TransferLearner(object):
                     verbose=0,
                     callbacks=[TQDMNotebookCallback(leave_inner=True)],
             )
+            self.current_epoch += epochs  # Epoch count only considered for second network
         else:
             self.network_1.fit(
                     x=self.evaluation_images,
@@ -212,7 +213,6 @@ class TransferLearner(object):
                     verbose=0,
                     callbacks=[TQDMNotebookCallback(leave_inner=True)],
             )
-        self.current_epoch += epochs
         drop(key='training', silent=True)
         self.save_model()
     
@@ -241,11 +241,12 @@ class TransferLearner(object):
         print("Accuracy network 1: ", round(c / (len(results) + 1), 3))
         return preds, results
     
-    def visualize_prediction_1(self, index):
+    def visualize_prediction_1(self, index, save=False):
         """
         Visualize the SoftMax activation from the last fully connected layer.
         
         :param index: The index of the evaluation_images that must be evaluated
+        :param save: Store the created images
         """
         # Create the prediction
         activation_model = Model(inputs=self.network_1.input, outputs=self.network_1.layers[-1].output)
@@ -259,6 +260,8 @@ class TransferLearner(object):
         create_image(array=img,
                      ax=ax,
                      title='Ground Truth: {}'.format(self.evaluation_labels[index]))
+        if save:
+            plt.savefig('images/input_{e:02d}.png'.format(e=self.current_epoch))
         plt.show()
         plt.close()
         
@@ -269,6 +272,8 @@ class TransferLearner(object):
         plt.colorbar(ticks=[0, 1], fraction=0.005)
         plt.xticks(range(10))
         plt.yticks([])
+        if save:
+            plt.savefig('images/softmax_{e:02d}.png'.format(e=self.current_epoch))
         plt.show()
         plt.close()
     
@@ -312,8 +317,10 @@ class TransferLearner(object):
         
         # Create a set of 'unsure' samples
         unsure = set()
+        mn = min(config.THRESHOLD - config.UNCERTAINTY_STEP, self.current_epoch * config.UNCERTAINTY_STEP)
+        mx = max(config.THRESHOLD + config.UNCERTAINTY_STEP, 1 - self.current_epoch * config.UNCERTAINTY_STEP)
         for i, p in enumerate(preds):
-            if config.UNCERTAIN_MIN < p[0] < config.UNCERTAIN_MAX:
+            if mn < p[0] < mx:
                 if i not in self.trained_indices:
                     unsure.add(i)
         
@@ -352,10 +359,12 @@ class TransferLearner(object):
             # Add index to trained_indices
             self.trained_indices.add(c)
     
-    def visualize_distribution(self):
+    def visualize_distribution(self, save=False):
         """
         Visualize the prediction-distribution for the second problem. This is done by first evaluating the model, and
         then displaying the probability-distribution of the last node across all the samples.
+        
+        :param save: Store the created images
         """
         # Evaluate the model first
         preds, results = self.evaluate_2()
@@ -385,10 +394,12 @@ class TransferLearner(object):
                          ax=ax,
                          title='MNIST - Correct: {}'.format(round(c / (len(results) + 1), 3)),
                          x_label='Even - Odd')
+        if save:
+            plt.savefig('images/distribution_{e:02d}.png'.format(e=self.current_epoch))
         plt.show()
         plt.close()
     
-    def visualize_prediction_2(self, index):
+    def visualize_prediction_2(self, index, save=False):
         """
         Visualize the last two layers of the second network and their connections, these are:
          * The SoftMax activation from the second last fully connected layer (fixed)
@@ -396,6 +407,7 @@ class TransferLearner(object):
          * The sigmoid activation
         
         :param index: The index of the evaluation_images that must be evaluated
+        :param save: Store the created images
         """
         # Create the prediction
         outputs = [layer.output for layer in self.network_2.layers[-2:]]
@@ -430,6 +442,8 @@ class TransferLearner(object):
         plt.colorbar(ticks=[-1, 0, 1], fraction=0.005)
         plt.xticks(range(10))
         plt.yticks([])
+        if save:
+            plt.savefig('images/weights_{e:02d}.png'.format(e=self.current_epoch))
         plt.show()
         plt.close()
         
@@ -440,6 +454,8 @@ class TransferLearner(object):
         plt.colorbar(ticks=[0, 0.5, 1], fraction=0.05)
         plt.xticks([])
         plt.yticks([])
+        if save:
+            plt.savefig('images/sigmoid_{e:02d}.png'.format(e=self.current_epoch))
         plt.show()
         plt.close()
     
