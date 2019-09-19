@@ -10,6 +10,9 @@ models/*.pickle
 # Gitignore all pycache files
 **/*pycache*
 
+# Gitignore notebook checkpoints
+notebooks/.ipynb_checkpoints/
+
 # Gitignore all images in the images/ subfolder
 images/*.png
 !images/gif_00.png

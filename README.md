@@ -130,3 +130,8 @@ model.compile(loss='binary_crossentropy',
 
 ### Model Evaluation
 
+In this last section, I will go briefly over the models performance. Let's consider that everything during training on the first problem went follows plan, and we want to start training our second model. In the first stage, the weights connecting the classification layer (CL) and the binary layer (BL) are chosen completely random, which has the following as a result:
+
+<p align="center">
+  <img src="https://github.com/RubenPants/TransferLearningKerasDemo/blob/master/images/gif_00.png"/>
+</p>
