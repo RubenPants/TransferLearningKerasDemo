@@ -2,9 +2,11 @@
 Functionality used to create GIFs programmatically.
 """
 import collections
+from glob import glob
 
 import matplotlib.pyplot as plt
 import numpy as np
+from PIL import Image
 
 from myutils import create_bar_graph
 
@@ -59,3 +61,25 @@ def create_image_model_state(model):
     plt.savefig('images/gif_{e:02d}'.format(e=model.current_epoch))
     plt.show()
     plt.close()
+
+
+def create_gif(rel_path='images/'):
+    """
+    Create a gif using all the saved 'gif_' png files.
+    """
+    images = glob('{p}gif_*.png'.format(p=rel_path))
+    img, images = images[0], images[1:]
+    im_start = Image.open(img)
+    img_list = [im_start for _ in range(4)]  # 5x the same image in the beginning
+    img_list += [Image.open(i) for i in images]
+    im_end = Image.open(images[-1])
+    img_list += [im_end for _ in range(4)]  # 5x the same image in the end
+    im_start.save('{p}final_fig.gif'.format(p=rel_path),
+                  save_all=True,
+                  append_images=img_list,
+                  duration=1000,
+                  loop=0)
+
+
+if __name__ == '__main__':
+    create_gif(rel_path='')
