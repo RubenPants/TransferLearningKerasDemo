@@ -1,12 +1,11 @@
 """
 transfer_learner.py
 
+# TODO: Model description
 Model based on convolutional neural networks (CNN) that results to a binary classifier (i.e. True or False).
-
-TODO: Transfer learn the model first
-TODO: Init phase (INIT_BATCH) on random samples instead of most unsure?
 """
 import collections
+from random import sample
 from threading import Lock
 
 import matplotlib.pyplot as plt
@@ -42,20 +41,18 @@ class TransferLearner(object):
         self.lock = Lock()  # Lock to dodge concurrency problems
         
         # Data (placeholders)
-        self.trained_indexes = None  # Set of all indexes already used for training
+        self.trained_indices = None  # Set of all indexes already used for training
         self.train_images = None  # List of training images
         self.evaluation_images = None  # List of evaluation images
         self.train_labels = None  # List of training labels
         self.evaluation_labels = None  # List of evaluation labels
-        self.pred_1 = None  # List of predictions corresponding evaluation_images for the first network
-        self.pred_2 = None  # List of predictions corresponding evaluation_images for the second network
         
         if not self.load_model():
             if not data_path:
                 raise Exception("'data_path' must be given when a new model must be created")
             
             # Data
-            self.trained_indexes = set()
+            self.trained_indices = set()
             self.evaluation_images = load_pickle(data_path + 'processed/images.pickle')
             self.evaluation_labels = load_pickle(data_path + 'processed/labels.pickle')
             
@@ -83,7 +80,7 @@ class TransferLearner(object):
         self.__dict__.update(state)
         self.lock = Lock()
     
-    # ------------------------------------------------> MAIN METHODS <------------------------------------------------ #
+    # -----------------------------------------------> MODEL CREATION <----------------------------------------------- #
     
     def create_model_one(self):
         """
@@ -91,11 +88,7 @@ class TransferLearner(object):
         
         :return: Model
         """
-        out = Dense(10,
-                    activation='softmax',
-                    name='output')(self.shared.output)
-        
-        self.network_1 = Model(inputs=self.shared.input, outputs=out)
+        self.network_1 = Model(inputs=self.shared.input, outputs=self.shared.output)
         self.network_1.compile(loss='sparse_categorical_crossentropy',
                                optimizer='adam',
                                metrics=['acc'])
@@ -171,128 +164,18 @@ class TransferLearner(object):
         global_maxpool = GlobalMaxPooling2D(name='global_max_pool')(conv23)
         
         # Fully connected layers
-        dense = Dense(32,
+        dense = Dense(128,
                       activation='tanh',
                       name='dense')(global_maxpool)
         
+        out = Dense(10,
+                    activation='softmax',
+                    name='out')(dense)
+        
         # Assign the newly created model to the 'shared' parameter
-        self.shared = Model(inputs=inp, outputs=dense)
+        self.shared = Model(inputs=inp, outputs=out)
     
-    def iterate(self, mapping, train=True):
-        """
-        One step of the process: evaluate to get the most uncertain sample, ask the user to evaluate this model,
-        train the model, and save afterwards.
-        
-        :param mapping: Mapping function between the ground-truth labels and the target-labelling (0 or 1)
-        :param train: Train the network after evaluation
-        """
-        # Create plot placeholder
-        # plt.figure()
-        # grid = plt.GridSpec(1, 3, wspace=0.4, hspace=0.3)
-        # ax1 = plt.subplot(grid[0, :2])
-        # ax2 = plt.subplot(grid[0, 2])
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3))
-        
-        # Evaluate the model
-        index = self.evaluate_2(eval_new=train, ax=ax1, mapping=mapping)
-        
-        # Ask for user input
-        img, label = self.evaluation_images[index], self.evaluation_labels[index]
-        create_image(array=img, ax=ax2, title="Is this image odd?")
-        
-        # Plot the figure
-        clear_output()
-        plt.show()
-        
-        # Interact with the user
-        i = input("Is image '{}' odd? [Yes/No] : ".format(index)).lower()
-        
-        # Close the plot
-        plt.close()
-        
-        # Add to training database
-        t = 1 if (i in ['yes', 'y', 'true']) else 0 if (i in ['no', 'n', 'false']) else None
-        if t is None:
-            raise Exception("Invalid input!")
-        img_add = img.reshape((1,) + img.shape)
-        label_add = np.asarray(t).reshape((1,))
-        if self.train_images is None:
-            self.train_images = img_add
-            self.train_labels = label_add
-        else:
-            self.train_images = np.concatenate((self.train_images, img_add))
-            self.train_labels = np.concatenate((self.train_labels, label_add))
-        
-        if train:
-            # Train the model
-            self.train()
-    
-    def evaluate_1(self):
-        """
-        Evaluate the network corresponding the first problem.
-        """
-        prep('Predicting...', key='evaluation')
-        # Get predictions
-        self.pred_1 = self.network_1.predict(self.evaluation_images, verbose=0)
-        results = []
-        for p in self.pred_1:
-            results.append(np.argmax(p))
-        
-        # Evaluate
-        c, i = 0, 0
-        for r, l in zip(results, self.evaluation_labels):
-            if r == l:
-                c += 1
-        
-        drop(key='evaluation')
-        print("Accuracy network 1: ", round(c / (len(results) + 1), 3))
-    
-    def evaluate_2(self, ax, eval_new, mapping):
-        """
-        Evaluate all the samples not used for training and plot the distribution. The index of the sample (in evaluation
-        set) closest to the model's decision threshold (defined in config) will be returned. The detailed results
-        (ground truths) will be stored in the 'evaluation' folder.
-        
-        :param ax: Axis on which the figure will be plotted
-        :param eval_new: Evaluate all the samples in evaluation_images again
-        :param mapping: Mapping function between the ground-truth labels and the target-labelling (0 or 1)
-        :return: Integer: index
-        """
-        if eval_new or self.pred_2 is None:
-            self.pred_2 = self.network_2.predict(self.evaluation_images, verbose=0)
-        pred_index = []  # List containing tuples of (index, value)
-        for i, p in enumerate(self.pred_2):
-            pred_index.append((i, abs(p - config.THRESHOLD)))
-        pred_index = sorted(pred_index, key=lambda pi: pi[1])
-        x = 0
-        while pred_index[x][0] in self.trained_indexes:
-            x += 1
-        self.trained_indexes.add(pred_index[x][0])
-        index = pred_index[x][0]
-        pred_round = self.pred_2.round(1)
-        
-        # Init counter
-        counter = collections.Counter()
-        for i in range(11):
-            counter[i / 10] = 0
-        
-        # Count distribution
-        for p in pred_round:
-            counter[p[0]] += 1
-        counter = dict(sorted(counter.items()))
-        
-        # Evaluate to ground truth
-        c, i = 0, 0
-        for i, l in enumerate(self.evaluation_labels):
-            p = 0 if (self.pred_2[i][0] < config.THRESHOLD) else 1
-            if mapping(l) == p:
-                c += 1
-        create_bar_graph(d=counter,
-                         ax=ax,
-                         title='MNIST - Correct: {}'.format(round(c / (i + 1), 3)),
-                         x_label='Even - Odd')
-        
-        return index
+    # --------------------------------------------> SHARED FUNCTIONALITY <-------------------------------------------- #
     
     def train(self, epochs=1):
         """
@@ -329,6 +212,233 @@ class TransferLearner(object):
         self.current_epoch += epochs
         drop(key='training', silent=True)
         self.save_model()
+    
+    # -------------------------------------------> NETWORK 1 FUNCTIONALITY <------------------------------------------ #
+    
+    def evaluate_1(self):
+        """
+        Evaluate the network corresponding the first problem. This is done by comparing the predictions to the ground
+        truth labels provided by the MNIST dataset.
+        
+        :return (pred, result): A tuple of both the raw predictions as the result of that prediction
+        """
+        prep('Predicting...', key='evaluation')
+        # Get predictions
+        preds = self.network_1.predict(self.evaluation_images, verbose=0)
+        results = []
+        for p in preds:
+            results.append(np.argmax(p))
+        
+        # Evaluate
+        c, i = 0, 0
+        for r, l in zip(results, self.evaluation_labels):
+            if r == l:
+                c += 1
+        drop(key='evaluation')
+        print("Accuracy network 1: ", round(c / (len(results) + 1), 3))
+        return preds, results
+    
+    def visualize_prediction_1(self, index):
+        """
+        Visualize the SoftMax activation from the last fully connected layer.
+        
+        :param index: The index of the evaluation_images that must be evaluated
+        """
+        # Create the prediction
+        activation_model = Model(inputs=self.network_1.input, outputs=self.network_1.layers[-1].output)
+        img = self.evaluation_images[index]
+        img_inp = img.reshape((1,) + img.shape)
+        activation = activation_model.predict(img_inp)
+        
+        # Visualize the input
+        print("Input:")
+        fig, ax = plt.subplots(1, 1, figsize=(3, 3))
+        create_image(array=img,
+                     ax=ax,
+                     title='Ground Truth: {}'.format(self.evaluation_labels[index]))
+        plt.show()
+        plt.close()
+        
+        # Visualize the activation (SoftMax)
+        print("SoftMax activation layer:")
+        plt.figure(figsize=(6, 3))
+        plt.imshow(activation, vmin=0, vmax=1)
+        plt.colorbar(ticks=[0, 1], fraction=0.005)
+        plt.xticks(range(10))
+        plt.yticks([])
+        plt.show()
+        plt.close()
+    
+    # -------------------------------------------> NETWORK 2 FUNCTIONALITY <------------------------------------------ #
+    
+    def evaluate_2(self):
+        """
+        Evaluate the network corresponding the first problem. This is done by creating a ground-truth mapping between
+        the provided MNIST target labels and our problem's target labels (i.e. module 2 of each original label).
+        
+        :return (pred, result): A tuple of both the raw predictions as the result of that prediction
+        """
+        prep('Predicting...', key='evaluation')
+        # Get predictions
+        preds = self.network_2.predict(self.evaluation_images, verbose=0)
+        results = []
+        for p in preds:
+            if p[0] >= config.THRESHOLD:
+                results.append(1)
+            else:
+                results.append(0)
+        
+        # Evaluate
+        c, i = 0, 0
+        for r, l in zip(results, self.evaluation_labels):
+            if r == (l % 2):  # l % 2 representing the ground truth
+                c += 1
+        drop(key='evaluation')
+        print("Accuracy network 2: ", round(c / (len(results) + 1), 3))
+        return preds, results
+    
+    def curate_batch(self, batch=config.CURATE_BATCH):
+        """
+        Manually curate 'batch' number of randomly chosen samples within the 'uncertainty' interval, as defined in the
+        config file.
+        
+        :param batch: Number of samples manually curated
+        """
+        # First evaluate the model to know the distribution of the model
+        preds, results = self.evaluate_2()
+        
+        # Create a set of 'unsure' samples
+        unsure = set()
+        for i, p in enumerate(preds):
+            if config.UNCERTAIN_MIN < p[0] < config.UNCERTAIN_MAX:
+                if i not in self.trained_indices:
+                    unsure.add(i)
+        
+        # Get 'batch' random samples to curate on
+        curate_set = sample(unsure, min(batch, len(unsure)))
+        
+        # Curate the random samples and add to 'trained_indexes'
+        for c in curate_set:
+            img, label = self.evaluation_images[c], self.evaluation_labels[c]
+            fig, ax = plt.subplots(1, 1, figsize=(3, 3))
+            create_image(array=img, ax=ax, title="Is this image odd? P(odd)={p:.2f}".format(p=round(preds[c][0], 2)))
+            
+            # Plot the figure
+            plt.show()
+            
+            # Interact with the user to manually curate the sample
+            i = input("Is image '{}' odd? [Yes/No] : ".format(c)).lower()
+            
+            # Clear and close the plot
+            clear_output()
+            plt.close()
+            
+            # Add to training database
+            t = 1 if (i in ['yes', 'y', 'true']) else 0 if (i in ['no', 'n', 'false']) else None
+            if t is None:
+                raise Exception("Invalid input!")
+            img_add = img.reshape((1,) + img.shape)
+            label_add = np.asarray(t).reshape((1,))
+            if self.train_images is None:
+                self.train_images = img_add
+                self.train_labels = label_add
+            else:
+                self.train_images = np.concatenate((self.train_images, img_add))
+                self.train_labels = np.concatenate((self.train_labels, label_add))
+            
+            # Add index to trained_indices
+            self.trained_indices.add(c)
+    
+    def visualize_distribution(self):
+        """
+        Visualize the prediction-distribution for the second problem. This is done by first evaluating the model, and
+        then displaying the probability-distribution of the last node across all the samples.
+        """
+        # Evaluate the model first
+        preds, results = self.evaluate_2()
+        
+        # Round the predictions to one floating digit
+        pred_round = preds.round(1)
+        
+        # Init counter
+        counter = collections.Counter()
+        for i in range(11):
+            counter[i / 10] = 0
+        
+        # Count distribution
+        for p in pred_round:
+            counter[p[0]] += 1
+        counter = dict(sorted(counter.items()))
+        
+        # Evaluate to ground truth
+        c, i = 0, 0
+        for r, l in zip(results, self.evaluation_labels):
+            if r == (l % 2):  # l % 2 representing the ground truth
+                c += 1
+        
+        # Plot the distribution
+        fig, ax = plt.subplots(1, 1, figsize=(5, 3))
+        create_bar_graph(d=counter,
+                         ax=ax,
+                         title='MNIST - Correct: {}'.format(round(c / (len(results) + 1), 3)),
+                         x_label='Even - Odd')
+        plt.show()
+        plt.close()
+    
+    def visualize_prediction_2(self, index):
+        """
+        Visualize the last two layers of the second network and their connections, these are:
+         * The SoftMax activation from the second last fully connected layer (fixed)
+         * The weights between the second last and the last layer (excluding the bias weight)
+         * The sigmoid activation
+        
+        :param index: The index of the evaluation_images that must be evaluated
+        """
+        # Create the prediction
+        outputs = [layer.output for layer in self.network_2.layers[-2:]]
+        activation_model = Model(inputs=self.network_2.input, outputs=outputs)
+        img = self.evaluation_images[index]
+        img_inp = img.reshape((1,) + img.shape)
+        activation = activation_model.predict(img_inp)
+        
+        # Visualize the input
+        print("Input:")
+        fig, ax = plt.subplots(1, 1, figsize=(3, 3))
+        create_image(array=img,
+                     ax=ax,
+                     title='Ground Truth: {}'.format(self.evaluation_labels[index]))
+        plt.show()
+        plt.close()
+        
+        # Visualize the activation (SoftMax)
+        print("SoftMax activation layer:")
+        plt.figure(figsize=(6, 3))
+        plt.imshow(activation[0], vmin=0, vmax=1)
+        plt.colorbar(ticks=[0, 1], fraction=0.005)
+        plt.xticks(range(10))
+        plt.yticks([])
+        plt.show()
+        plt.close()
+        
+        # Connection weights
+        print("Connection weights between last two layers:")
+        plt.figure(figsize=(6, 3))
+        plt.imshow(np.asarray([[x[0] for x in self.network_2.layers[-1].get_weights()[0]]]), vmin=-1, vmax=1)
+        plt.colorbar(ticks=[-1, 0, 1], fraction=0.005)
+        plt.xticks(range(10))
+        plt.yticks([])
+        plt.show()
+        plt.close()
+        
+        # Sigmoid activation
+        print("Sigmoid activation: value={v:.2f}".format(v=round(activation[1][0][0], 2)))
+        plt.figure(figsize=(1, 1))
+        plt.imshow(activation[1], vmin=0, vmax=1)
+        plt.colorbar(ticks=[0, 0.5, 1], fraction=0.05)
+        plt.xticks([])
+        plt.yticks([])
+        plt.show()
+        plt.close()
     
     # -----------------------------------------------> HELPER METHODS <----------------------------------------------- #
     
@@ -426,7 +536,7 @@ class TransferLearner(object):
         self.is_frozen = new_model.is_frozen  # Boolean indicating that the shared network's layers are frozen
         
         # Data (placeholders)
-        self.trained_indexes = new_model.trained_indexes  # Set of indexes already used for training
+        self.trained_indices = new_model.trained_indices  # Set of indexes already used for training
         self.train_images = new_model.train_images  # List of training images
         self.evaluation_images = new_model.evaluation_images  # List of evaluation images
         self.train_labels = new_model.train_labels  # List of training labels
