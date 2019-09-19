@@ -1,7 +1,42 @@
 # Transfer Learning Demo using Keras
 
+## Overview
 
-## Introduction - Transfer Learning
+1. TLDR
+2. Project Overview
+3. Full walk-through
+
+
+## 1. TLDR
+
+Get a already trained model and freeze its layers by calling:
+```python
+for layer in init_model.layers[:-N]:
+    layer.trainable = False
+
+x = NextLayer(...)(init_model.output)
+out = LastLayer(...)(x)
+new_model = Model(inputs=init_model.input, outputs=out)
+```
+with `N` the number of layers that remain unfrozen from the initial model. 
+
+
+## 2. Project Overview
+
+* **Configuration** file of the project is `config.py`, this gives an overview of the most prominent parameters of the
+project
+* **Jupyter Notebook** which gives a detailed and complete walk-through of the full process can be found in the 
+'notebooks/' subfolder, a HTML-compiled version of the final notebook can be in here as well (since this is visually a
+bit more appealing, and one does not need to install all the dependencies before opening this)
+* **MNIST Dataset** can be found in the 'data/mnist/' folder, both the script for fetching the raw images as the 
+preprocess of the samples can be found in here
+* **TransferLearner** itself can be found in the `transfer_learner.py` file under root
+
+
+
+## 3. Full walk-through
+
+### Introduction - Transfer Learning
 Transfer Learning provides a mechanism to efficiently use the data you have by incorporating data from a different but
 (possibly quite remotely) related problem. The main advantage is that given the fact you obtain only a limited amount of
 data to train your models upon, you can 'pre-train' the model on this other related task, and afterwards fine-tune the
@@ -9,7 +44,7 @@ model's parameters using the data you have at your disposal.
 
 In this demo, I will manipulate the classic task for the *MNIST database of handwritten digits* which had as initial
 goal to recognize handwritten digits. For this manipulation, the model acts as a binary classifier and needs to predict
-if a picture of a handwritten image represents a odd number (1) or not (0). 
+if a picture of a handwritten image represents a odd number (labelled 1) or not (labelled 0). 
 
 Suppose now the following: 
 * We don't have the resources to create our own database of handwritten digits to map to a *odd number identifier*
@@ -22,7 +57,7 @@ In this case, Transfer Learning would be of great use because we can first train
 afterwards specialize the model into recognizing odd numbers.
 
 
-## That's great and all, but how does it work?
+### That's great and all, but how does it work?
 
 Good question! **First**, we need to create a model to recognize images. Since the input is only black and white, we 
 need only one value, lets say a, integer, to represent each pixel value. We make the spectrum of the pixel fixed between 
@@ -64,7 +99,7 @@ everything the last layer has learned for problem 2 worthless or even incorrect 
 number in the previous encoding.
 
  
-## Code
+### Code
 
 Ok, now I've explained the whole rationale in full detail, we're ready to dive into the code. The model itself contains
 a **shared network**. This is the network that is trained on the first problem, then frozen and used for our second
@@ -140,12 +175,3 @@ self.network.compile(loss='binary_crossentropy',
                      optimizer='adam',
                      metrics=['acc'])
 ```
-
-
-## Alternatives
-
-### Freeze the whole first network
-Another, and possibly a better, alternative of the model would be to simply add the last layer on top of the 
-'categorical layer' of the first problem. By doing so, the model only needs to know that one category always ends up to
-one given Boolean value (odd or not). In theory, only 10 samples (one for every possible digit) would be needed to train
-the model on the *odd-identification* problem.

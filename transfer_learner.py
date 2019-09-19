@@ -5,6 +5,7 @@ transfer_learner.py
 Model based on convolutional neural networks (CNN) that results to a binary classifier (i.e. True or False).
 """
 import collections
+from glob import glob
 from random import sample
 from threading import Lock
 
@@ -71,14 +72,20 @@ class TransferLearner(object):
 
         :return: String
         """
-        return 'transfer_learner_{n}{v}'.format(n=self.name.replace(' ', '_'), v='_v{v:02d}'.format(v=config.VERSION))
+        return 'transfer_learner_{n}'.format(n=self.name.replace(' ', '_'))
     
     def __getstate__(self):
+        """
+        Remove lock from state because it can't be persisted properly.
+        """
         state = self.__dict__.copy()
         del state['lock']
         return state
     
     def __setstate__(self, state):
+        """
+        Add lock back to state when new state fetched.
+        """
         self.__dict__.update(state)
         self.lock = Lock()
     
@@ -86,9 +93,8 @@ class TransferLearner(object):
     
     def create_model_one(self):
         """
-        Add the bottom layer for the first problem statement (classification task), as described in the README.
-        
-        :return: Model
+        Compile the first network which purely consists out of all the layers from the shared network, as described in
+        the README. Use sparse_categorical_crossentropy since the task at hand is a classification task.
         """
         self.network_1 = Model(inputs=self.shared.input, outputs=self.shared.output)
         self.network_1.compile(loss='sparse_categorical_crossentropy',
@@ -101,8 +107,6 @@ class TransferLearner(object):
         Add the bottom layer for the second problem statement (binary classification), as described in the README. The
         shared model's weights will get frozen as well, note that it will not be possible to train the network on the
         first problem anymore after freezing the shared model's layers.
-        
-        :return: Model
         """
         # Freeze the shared model
         self.is_frozen = True
@@ -125,8 +129,6 @@ class TransferLearner(object):
     def create_shared_network(self):
         """
         Create the shared part of the model as described in the README.
-        
-        :return: Model
         """
         # RGB input of non-defined size
         inp = Input(shape=(None, None, 3),  # Excluding batch-size
@@ -191,7 +193,7 @@ class TransferLearner(object):
         
         If the shared model is indeed frozen, only manually curated samples will be used to train the model on.
         
-        :param epochs: Number of epochs trained
+        :param epochs: Number of epochs the model will be trained on
         """
         prep('Predicting...', key='training', silent=True)
         if self.is_frozen:
@@ -466,7 +468,6 @@ class TransferLearner(object):
         Load a previously trained model and print out its summary.
 
         :param full_path: [Optional] Path and name (including .pickle) to directory where model is saved
-
         :return: True: Model loaded and parameters updated successfully | False: Model loading failed
         """
         try:
@@ -479,7 +480,7 @@ class TransferLearner(object):
                 mdl_path = "models/{m}".format(m=str(self))
                 
                 # Search for models that satisfy parameters
-                models = glob.glob(mdl_path + '*.pickle')
+                models = glob(mdl_path + '*.pickle')
                 if len(models) == 0:
                     raise OSError("No models found")
                 

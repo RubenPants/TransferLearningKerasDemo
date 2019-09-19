@@ -24,7 +24,6 @@ def average_images(img_list):
     :param img_list: List of arrays
     :return: Normalized list of arrays
     """
-    samples, width, height = img_list.shape
     img_list_avg = np.zeros(img_list.shape, dtype=float)
     for i, img in enumerate(img_list):
         img_list_avg[i] = img / np.max(img)
