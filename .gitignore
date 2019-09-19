@@ -12,6 +12,11 @@ models/*.pickle
 
 # Gitignore all images in the images/ subfolder
 images/*.png
+!images/gif_00.png
+!images/gif_05.png
+!images/gif_13.png
+!images/gif_20.png
+!images/gif_30.png
 
 # Gitignore all backed-up files
 backup/
