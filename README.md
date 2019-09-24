@@ -164,6 +164,10 @@ The only non-optimized number left is number 1, this is because up till now, thi
 
 Note that for the last problem where the model needed quite some time to train on number 1, less manually curated 1-samples would result in a comparable result as we obtained here. Once the model has the right curated samples and is trained enough, the weights will eventually update to the right values.
 
+### TensorBoard
+
+In a last update, I've added TensorBoard support during training. TensorBoard is a handy tool to (visually) analyze training progress of your model. This will be done automatically so there is nothing for you to worry about. An example of how to do so in your own project can be found on https://www.youtube.com/watch?v=2U6Jl7oqRkM, it's only a two minute watch! To fire up TensorBoard after training, type `tensorboard --logdir logs/` in a terminal in root.
+
 ### Conclusion
 
 In another experiment I did, each number had one 'representative' that was manually curated. After only 8 epochs of training, the model already obtained better results that we got above (with only 10 manually curated samples!). This to show that the choice of (high quality) samples is very important when performing transfer learning. Since the model already has a general understanding of the problem, due to the training on `network_1`, it is better to have less but more qualitative samples, than to have more noisy samples in your dataset.

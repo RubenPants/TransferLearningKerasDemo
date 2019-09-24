@@ -23,3 +23,7 @@ images/*.png
 
 # Gitignore all backed-up files
 backup/
+
+# Gitignore all logs
+logs/*
+!logs/__init__.py

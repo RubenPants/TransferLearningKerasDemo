@@ -1,17 +1,19 @@
 """
 transfer_learner.py
 
-# TODO: Model description
-Model based on convolutional neural networks (CNN) that results to a binary classifier (i.e. True or False).
+Create a transfer learner by first training a network on the labeled MNIST dataset and then adding an additional layer
+to this network to then train on a limited dataset of samples.
 """
 import collections
 from glob import glob
 from random import sample
 from threading import Lock
+from time import time
 
 import matplotlib.pyplot as plt
 import numpy as np
 from IPython.display import clear_output
+from keras.callbacks import TensorBoard
 from keras.layers import Conv2D, Dense, GlobalMaxPooling2D, Input, MaxPooling2D
 from keras.models import Model
 from keras.optimizers import Adam
@@ -196,6 +198,11 @@ class TransferLearner(object):
         :param epochs: Number of epochs the model will be trained on
         """
         prep('Predicting...', key='training', silent=True)
+        
+        # Create TensorBoard instantiation
+        tensorboard = TensorBoard(log_dir='logs/{}'.format(time()))
+        
+        # Train the suitable network
         if self.is_frozen:
             self.network_2.fit(
                     x=self.train_images,
@@ -203,7 +210,7 @@ class TransferLearner(object):
                     batch_size=config.BATCH_SIZE,
                     epochs=epochs,
                     verbose=0,
-                    callbacks=[TQDMNotebookCallback(leave_inner=True)],
+                    callbacks=[TQDMNotebookCallback(leave_inner=True), tensorboard],
             )
             self.current_epoch += epochs  # Epoch count only considered for second network
         else:
@@ -213,7 +220,7 @@ class TransferLearner(object):
                     batch_size=config.BATCH_SIZE,
                     epochs=epochs,
                     verbose=0,
-                    callbacks=[TQDMNotebookCallback(leave_inner=True)],
+                    callbacks=[TQDMNotebookCallback(leave_inner=True), tensorboard],
             )
         drop(key='training', silent=True)
         self.save_model()
