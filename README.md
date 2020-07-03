@@ -6,8 +6,9 @@
 2. **Project Overview** - For the real hackers who want to dive straight into the code
 3. **Full walk-through** - For those who want to learn a bit and have 15 minutes of spare time
 
-![Demo](https://github.com/RubenPants/TransferLearningKerasDemo/blob/master/images/final_fig.gif)
-
+<p align="center">
+  <img src="https://github.com/RubenPants/TransferLearningKerasDemo/blob/master/images/final_fig.gif"/>
+</p>
 
 
 ## 1. TLDR
